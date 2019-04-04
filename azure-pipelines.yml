@@ -1,0 +1,11 @@
+pool:
+  vmImage: 'VS2017-Win2016'
+
+steps:
+  - task: Bash@3
+    inputs:
+      targetType: inline
+      script: |
+        git clone -b release_80 https://github.com/llvm-mirror/llvm.git  llvm
+        git clone -b release_80 https://github.com/llvm-mirror/clang.git llvm/tools/clang
+        git clone -b release_80 https://github.com/llvm-mirror/lld.git   llvm/tools/lld
