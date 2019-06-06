@@ -47,7 +47,7 @@ const (
 	uf2MagicStart0  = 0x0A324655 // "UF2\n"
 	uf2MagicStart1  = 0x9E5D5157 // Randomly selected
 	uf2MagicEnd     = 0x0AB16F30 // Ditto
-	uf2StartAddress = 0x2000
+	uf2StartAddress = 0x4000     // TODO: must allow this to be set via the board's json file
 )
 
 // UF2Block is the structure used for each UF2 code block sent to device.
