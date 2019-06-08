@@ -5,7 +5,6 @@ package runtime
 import (
 	"device/arm"
 	"device/sam"
-	"machine"
 )
 
 type timeUnit int64
@@ -21,8 +20,8 @@ func main() {
 func init() {
 	initClocks()
 	initRTC()
-	//initSERCOMClocks()
-	//initUSBClock()
+	initSERCOMClocks()
+	initUSBClock()
 	//initADCClock()
 
 	// connect to USB CDC interface
@@ -52,9 +51,6 @@ func initClocks() {
 	// Set OSCULP32K as source of Generic Clock Generator 0
 	sam.GCLK.GENCTRL0.Set((sam.GCLK_GENCTRL_SRC_OSCULP32K << sam.GCLK_GENCTRL_SRC_Pos) |
 		sam.GCLK_GENCTRL_GENEN)
-	// sam.GCLK.GENCTRL0.Set((0 << sam.GCLK_GENCTRL_ID_Pos) |
-	// 	(sam.GCLK_GENCTRL_SRC_OSCULP32K << sam.GCLK_GENCTRL_SRC_Pos) |
-	// 	sam.GCLK_GENCTRL_GENEN)
 	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL0) {
 	}
 
@@ -84,31 +80,26 @@ func initClocks() {
 	for !sam.OSCCTRL.STATUS.HasBits(sam.OSCCTRL_STATUS_DFLLRDY) {
 	}
 
-	sam.GCLK.GENCTRL5.Set((sam.GCLK_GENCTRL_SRC_DFLL << sam.GCLK_GENCTRL_SRC_Pos) |
-		(48 << sam.GCLK_GENCTRL_DIVSEL_Pos) |
+	// set GCLK7 to use DFLL48M as clock source
+	sam.GCLK.GENCTRL7.Set((sam.GCLK_GENCTRL_SRC_DFLL << sam.GCLK_GENCTRL_SRC_Pos) |
+		(24 << sam.GCLK_GENCTRL_DIVSEL_Pos) |
 		sam.GCLK_GENCTRL_GENEN)
-	// sam.GCLK.GENCTRL.Set((5 << sam.GCLK_GENCTRL_ID_Pos) |
-	// 	(sam.GCLK_GENCTRL_SRC_DFLL << sam.GCLK_GENCTRL_SRC_Pos) |
-	// 	(48 << sam.GCLK_GENCTRL_DIVSEL_Pos) |
-	// 	sam.GCLK_GENCTRL_GENEN)
-	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL5) {
+	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL7) {
 	}
 
 	// Set up the PLLs
 
 	// Set PLL0 at 120MHz
-	sam.GCLK.PCHCTRL0.Set((1 << sam.GCLK_PCHCTRL_CHEN_Pos) |
-		(sam.GCLK_PCHCTRL_GEN_GCLK5 << sam.GCLK_PCHCTRL_GEN_Pos))
+	sam.GCLK.PCHCTRL1.Set(sam.GCLK_PCHCTRL_CHEN |
+		(sam.GCLK_PCHCTRL_GEN_GCLK7 << sam.GCLK_PCHCTRL_GEN_Pos))
 
-	// This rounds to nearest full-MHz increment; not currently using fractional value,
-	// just like the other libs do.
 	sam.OSCCTRL.DPLLRATIO0.Set((0x0 << sam.OSCCTRL_DPLLRATIO_LDRFRAC_Pos) |
-		(((machine.CPU_FREQUENCY - 500000) / 1000000) << sam.OSCCTRL_DPLLRATIO_LDR_Pos))
+		(59 << sam.OSCCTRL_DPLLRATIO_LDR_Pos))
 	for sam.OSCCTRL.DPLLSYNCBUSY0.HasBits(sam.OSCCTRL_DPLLSYNCBUSY_DPLLRATIO) {
 	}
 
 	// MUST USE LBYPASS DUE TO BUG IN REV A OF SAMD51, via Adafruit lib.
-	sam.OSCCTRL.DPLLCTRLB0.Set(sam.OSCCTRL_DPLLCTRLB_REFCLK_GCLK |
+	sam.OSCCTRL.DPLLCTRLB0.Set((sam.OSCCTRL_DPLLCTRLB_REFCLK_GCLK << sam.OSCCTRL_DPLLCTRLB_REFCLK_Pos) |
 		sam.OSCCTRL_DPLLCTRLB_LBYPASS)
 
 	sam.OSCCTRL.DPLLCTRLA0.Set(sam.OSCCTRL_DPLLCTRLA_ENABLE)
@@ -116,23 +107,23 @@ func initClocks() {
 		!sam.OSCCTRL.DPLLSTATUS0.HasBits(sam.OSCCTRL_DPLLSTATUS_LOCK) {
 	}
 
-	// Set PLL1 to 100MHz
-	sam.GCLK.PCHCTRL1.Set((1 << sam.GCLK_PCHCTRL_CHEN_Pos) |
-		(sam.GCLK_PCHCTRL_GEN_GCLK5 << sam.GCLK_PCHCTRL_GEN_Pos))
+	// // Set PLL1 to 100MHz
+	sam.GCLK.PCHCTRL2.Set(sam.GCLK_PCHCTRL_CHEN |
+		(sam.GCLK_PCHCTRL_GEN_GCLK7 << sam.GCLK_PCHCTRL_GEN_Pos))
 
 	sam.OSCCTRL.DPLLRATIO1.Set((0x0 << sam.OSCCTRL_DPLLRATIO_LDRFRAC_Pos) |
-		(99 << sam.OSCCTRL_DPLLRATIO_LDR_Pos)) // this means 100 Mhz
+		(49 << sam.OSCCTRL_DPLLRATIO_LDR_Pos)) // this means 100 Mhz?
 	for sam.OSCCTRL.DPLLSYNCBUSY1.HasBits(sam.OSCCTRL_DPLLSYNCBUSY_DPLLRATIO) {
 	}
 
-	// MUST USE LBYPASS DUE TO BUG IN REV A OF SAMD51
-	sam.OSCCTRL.DPLLCTRLB1.Set(sam.OSCCTRL_DPLLCTRLB_REFCLK_GCLK |
+	// // MUST USE LBYPASS DUE TO BUG IN REV A OF SAMD51
+	sam.OSCCTRL.DPLLCTRLB1.Set((sam.OSCCTRL_DPLLCTRLB_REFCLK_GCLK << sam.OSCCTRL_DPLLCTRLB_REFCLK_Pos) |
 		sam.OSCCTRL_DPLLCTRLB_LBYPASS)
 
 	sam.OSCCTRL.DPLLCTRLA1.Set(sam.OSCCTRL_DPLLCTRLA_ENABLE)
-	for !sam.OSCCTRL.DPLLSTATUS1.HasBits(sam.OSCCTRL_DPLLSTATUS_CLKRDY) ||
-		!sam.OSCCTRL.DPLLSTATUS1.HasBits(sam.OSCCTRL_DPLLSTATUS_LOCK) {
-	}
+	// for !sam.OSCCTRL.DPLLSTATUS1.HasBits(sam.OSCCTRL_DPLLSTATUS_CLKRDY) ||
+	// 	!sam.OSCCTRL.DPLLSTATUS1.HasBits(sam.OSCCTRL_DPLLSTATUS_LOCK) {
+	// }
 
 	// Set up the peripheral clocks
 	// Set 48MHZ CLOCK FOR USB
@@ -142,14 +133,14 @@ func initClocks() {
 	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL1) {
 	}
 
-	// Set 100MHZ CLOCK FOR OTHER PERIPHERALS
-	sam.GCLK.GENCTRL2.Set((sam.GCLK_GENCTRL_SRC_DPLL1 << sam.GCLK_GENCTRL_SRC_Pos) |
-		sam.GCLK_GENCTRL_IDC |
-		sam.GCLK_GENCTRL_GENEN)
-	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL2) {
-	}
+	// // Set 100MHZ CLOCK FOR OTHER PERIPHERALS
+	// sam.GCLK.GENCTRL2.Set((sam.GCLK_GENCTRL_SRC_DPLL1 << sam.GCLK_GENCTRL_SRC_Pos) |
+	// 	sam.GCLK_GENCTRL_IDC |
+	// 	sam.GCLK_GENCTRL_GENEN)
+	// for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL2) {
+	// }
 
-	// Set 12MHZ CLOCK FOR DAC
+	// // Set 12MHZ CLOCK FOR DAC
 	sam.GCLK.GENCTRL4.Set((sam.GCLK_GENCTRL_SRC_DFLL << sam.GCLK_GENCTRL_SRC_Pos) |
 		sam.GCLK_GENCTRL_IDC |
 		(4 << sam.GCLK_GENCTRL_DIVSEL_Pos) |
@@ -157,7 +148,7 @@ func initClocks() {
 	for sam.GCLK.SYNCBUSY.HasBits(sam.GCLK_SYNCBUSY_GENCTRL4) {
 	}
 
-	// Set up main clock
+	// // Set up main clock
 	sam.GCLK.GENCTRL0.Set((sam.GCLK_GENCTRL_SRC_DPLL0 << sam.GCLK_GENCTRL_SRC_Pos) |
 		sam.GCLK_GENCTRL_IDC |
 		sam.GCLK_GENCTRL_GENEN)
@@ -180,8 +171,9 @@ func initRTC() {
 	sam.MCLK.APBAMASK.SetBits(sam.MCLK_APBAMASK_RTC_)
 
 	// disable RTC
-	sam.RTC_MODE0.CTRLA.Set(0)
-	for sam.RTC_MODE0.SYNCBUSY.HasBits(sam.RTC_MODE0_SYNCBUSY_SWRST) {
+	sam.RTC_MODE0.CTRLA.ClearBits(sam.RTC_MODE0_CTRLA_ENABLE)
+	//sam.RTC_MODE0.CTRLA.Set(0)
+	for sam.RTC_MODE0.SYNCBUSY.HasBits(sam.RTC_MODE0_SYNCBUSY_ENABLE) {
 	}
 
 	// reset RTC
@@ -189,11 +181,14 @@ func initRTC() {
 	for sam.RTC_MODE0.SYNCBUSY.HasBits(sam.RTC_MODE0_SYNCBUSY_SWRST) {
 	}
 
+	// set to use ulp 32k oscillator
+	sam.OSC32KCTRL.OSCULP32K.Set(sam.OSC32KCTRL_OSCULP32K_EN32K)
+	sam.OSC32KCTRL.RTCCTRL.Set(sam.OSC32KCTRL_RTCCTRL_RTCSEL_ULP32K)
+
 	// set Mode0 to 32-bit counter (mode 0) with prescaler 1 and GCLK2 is 32KHz/1
 	sam.RTC_MODE0.CTRLA.Set((sam.RTC_MODE0_CTRLA_MODE_COUNT32 << sam.RTC_MODE0_CTRLA_MODE_Pos) |
-		(sam.RTC_MODE0_CTRLA_PRESCALER_DIV1 << sam.RTC_MODE0_CTRLA_PRESCALER_Pos))
-	// for sam.RTC_MODE0.SYNCBUSY.HasBits(sam.RTC_MODE0_SYNCBUSY_SWRST) {
-	// }
+		(sam.RTC_MODE0_CTRLA_PRESCALER_DIV1 << sam.RTC_MODE0_CTRLA_PRESCALER_Pos) |
+		(sam.RTC_MODE0_CTRLA_COUNTSYNC))
 
 	// re-enable RTC
 	sam.RTC_MODE0.CTRLA.SetBits(sam.RTC_MODE0_CTRLA_ENABLE)
@@ -275,7 +270,7 @@ func timerSleep(ticks uint32) {
 //go:export RTC_IRQHandler
 func handleRTC() {
 	// disable IRQ for CMP0 compare
-	sam.RTC_MODE0.INTFLAG.Set(sam.RTC_MODE0_INTENSET_CMP0)
+	sam.RTC_MODE0.INTFLAG.SetBits(sam.RTC_MODE0_INTENSET_CMP0)
 
 	timerWakeup = true
 }
@@ -289,7 +284,7 @@ func initUSBClock() {
 
 	// Put Generic Clock Generator 1 as source for USB
 	//GCLK->PCHCTRL[USB_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK1_Val | (1 << GCLK_PCHCTRL_CHEN_Pos);
-	sam.GCLK.PCHCTRL6.Set((sam.GCLK_PCHCTRL_GEN_GCLK1 << sam.GCLK_PCHCTRL_GEN_Pos) |
+	sam.GCLK.PCHCTRL10.Set((sam.GCLK_PCHCTRL_GEN_GCLK1 << sam.GCLK_PCHCTRL_GEN_Pos) |
 		sam.GCLK_PCHCTRL_CHEN)
 }
 
