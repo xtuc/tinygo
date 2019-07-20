@@ -13,7 +13,7 @@ import (
 // slice. This is required by the Go language spec: an index out of bounds must
 // cause a panic.
 func (c *Compiler) emitLookupBoundsCheck(frame *Frame, arrayLen, index llvm.Value, indexType types.Type) {
-	if frame.fn.IsNoBounds() {
+	if frame.info.nobounds {
 		// The //go:nobounds pragma was added to the function to avoid bounds
 		// checking.
 		return
@@ -32,8 +32,8 @@ func (c *Compiler) emitLookupBoundsCheck(frame *Frame, arrayLen, index llvm.Valu
 		arrayLen = c.builder.CreateZExt(arrayLen, index.Type(), "")
 	}
 
-	faultBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, "lookup.outofbounds")
-	nextBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, "lookup.next")
+	faultBlock := c.ctx.AddBasicBlock(frame.llvmFn, "lookup.outofbounds")
+	nextBlock := c.ctx.AddBasicBlock(frame.llvmFn, "lookup.next")
 	frame.blockExits[frame.currentBlock] = nextBlock // adjust outgoing block for phi nodes
 
 	// Now do the bounds check: index >= arrayLen
@@ -57,7 +57,7 @@ func (c *Compiler) emitLookupBoundsCheck(frame *Frame, arrayLen, index llvm.Valu
 // biggest possible slice capacity, 'low' means len and 'high' means cap. The
 // logic is the same in both cases.
 func (c *Compiler) emitSliceBoundsCheck(frame *Frame, capacity, low, high llvm.Value, lowType, highType *types.Basic) {
-	if frame.fn.IsNoBounds() {
+	if frame.info.nobounds {
 		// The //go:nobounds pragma was added to the function to avoid bounds
 		// checking.
 		return
@@ -91,8 +91,8 @@ func (c *Compiler) emitSliceBoundsCheck(frame *Frame, capacity, low, high llvm.V
 		}
 	}
 
-	faultBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, "slice.outofbounds")
-	nextBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, "slice.next")
+	faultBlock := c.ctx.AddBasicBlock(frame.llvmFn, "slice.outofbounds")
+	nextBlock := c.ctx.AddBasicBlock(frame.llvmFn, "slice.next")
 	frame.blockExits[frame.currentBlock] = nextBlock // adjust outgoing block for phi nodes
 
 	// Now do the bounds check: low > high || high > capacity
@@ -120,8 +120,8 @@ func (c *Compiler) emitNilCheck(frame *Frame, ptr llvm.Value, blockPrefix string
 	}
 
 	// Check whether this is a nil pointer.
-	faultBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, blockPrefix+".nil")
-	nextBlock := c.ctx.AddBasicBlock(frame.fn.LLVMFn, blockPrefix+".next")
+	faultBlock := c.ctx.AddBasicBlock(frame.llvmFn, blockPrefix+".nil")
+	nextBlock := c.ctx.AddBasicBlock(frame.llvmFn, blockPrefix+".next")
 	frame.blockExits[frame.currentBlock] = nextBlock // adjust outgoing block for phi nodes
 
 	// Compare against nil.
