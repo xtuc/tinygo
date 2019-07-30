@@ -12,6 +12,19 @@ import (
 // a struct contains more fields, it is passed as a struct without expanding.
 const MaxFieldsPerParam = 3
 
+// createGoCall starts a new goroutine with the provided function pointer and parameters.
+// Because a go statement doesn't return anything, return undef.
+func (c *Compiler) createGoCall(funcPtr llvm.Value, params []llvm.Value) llvm.Value {
+	// We roundtrip through runtime.makeGoroutine as a signal (to find these
+	// calls) and to break any optimizations LLVM will try to do: they are
+	// invalid if we called this as a regular function to be updated later.
+	calleeValue := c.builder.CreateBitCast(funcPtr, c.i8ptrType, "")
+	calleeValue = c.createRuntimeCall("makeGoroutine", []llvm.Value{calleeValue}, "")
+	calleeValue = c.builder.CreateBitCast(calleeValue, funcPtr.Type(), "")
+	c.createCall(calleeValue, params, "")
+	return llvm.Undef(funcPtr.Type().ElementType().ReturnType())
+}
+
 // Shortcut: create a call to runtime.<fnName> with the given arguments.
 func (c *Compiler) createRuntimeCall(fnName string, args []llvm.Value, name string) llvm.Value {
 	runtimePkg := c.ir.Program.ImportedPackage("runtime")

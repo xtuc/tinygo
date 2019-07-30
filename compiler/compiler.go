@@ -1034,32 +1034,33 @@ func (c *Compiler) parseInstr(frame *Frame, instr ssa.Instruction) {
 			c.addError(instr.Pos(), "todo: go on method receiver")
 			return
 		}
-		callee := instr.Call.StaticCallee()
-		if callee == nil {
-			c.addError(instr.Pos(), "todo: go on non-direct function (function pointer, etc.)")
-			return
-		}
-		calleeFn := c.ir.GetFunction(callee)
-
-		// Mark this function as a 'go' invocation and break invalid
-		// interprocedural optimizations. For example, heap-to-stack
-		// transformations are not sound as goroutines can outlive their parent.
-		calleeType := calleeFn.LLVMFn.Type()
-		calleeValue := c.builder.CreateBitCast(calleeFn.LLVMFn, c.i8ptrType, "")
-		calleeValue = c.createRuntimeCall("makeGoroutine", []llvm.Value{calleeValue}, "")
-		calleeValue = c.builder.CreateBitCast(calleeValue, calleeType, "")
 
 		// Get all function parameters to pass to the goroutine.
 		var params []llvm.Value
 		for _, param := range instr.Call.Args {
 			params = append(params, c.getValue(frame, param))
 		}
-		if !calleeFn.IsExported() {
-			params = append(params, llvm.Undef(c.i8ptrType)) // context parameter
-			params = append(params, llvm.Undef(c.i8ptrType)) // parent coroutine handle
-		}
 
-		c.createCall(calleeValue, params, "")
+		// Mark this function as a 'go' invocation and break invalid
+		// interprocedural optimizations. For example, heap-to-stack
+		// transformations are not sound as goroutines can outlive their parent.
+		if callee := instr.Call.StaticCallee(); callee != nil {
+			// Static callee is known: this is a regular function call.
+			calleeFn := c.ir.GetFunction(callee)
+			if !calleeFn.IsExported() {
+				params = append(params, llvm.Undef(c.i8ptrType))     // context parameter
+				params = append(params, c.getZeroValue(c.i8ptrType)) // parent coroutine handle
+			}
+			c.createGoCall(calleeFn.LLVMFn, params)
+		} else if !instr.Call.IsInvoke() {
+			// Start a new goroutine by calling a function pointer.
+			funcPtr, context := c.decodeFuncValue(c.getValue(frame, instr.Call.Value), instr.Call.Value.Type().(*types.Signature))
+			params = append(params, context)                     // context parameter
+			params = append(params, c.getZeroValue(c.i8ptrType)) // parent coroutine handle
+			c.createGoCall(funcPtr, params)
+		} else {
+			c.addError(instr.Pos(), "todo: go on interface call")
+		}
 	case *ssa.If:
 		cond := c.getValue(frame, instr.Cond)
 		block := instr.Block()

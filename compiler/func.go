@@ -32,7 +32,7 @@ const (
 // funcImplementation picks an appropriate func value implementation for the
 // target.
 func (c *Compiler) funcImplementation() funcValueImplementation {
-	if c.GOARCH == "wasm" {
+	if c.GOARCH == "wasm" || true {
 		return funcValueSwitch
 	} else {
 		return funcValueDoubleword
