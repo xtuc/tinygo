@@ -1,5 +1,5 @@
 // +build gc.conservative
-// +build !cortexm,!tinygo.riscv
+// +build !cortexm,!tinygo.riscv,!arm7tdmi
 
 package runtime
 

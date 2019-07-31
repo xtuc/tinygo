@@ -1,4 +1,4 @@
-// +build avr cortexm tinygo.riscv
+// +build avr cortexm tinygo.riscv arm7tdmi
 
 package runtime
 

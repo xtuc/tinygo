@@ -18,7 +18,7 @@ func (c *Compiler) needsStackObjects() bool {
 		return false
 	}
 	for _, tag := range c.BuildTags {
-		if tag == "cortexm" || tag == "tinygo.riscv" {
+		if tag == "cortexm" || tag == "tinygo.riscv" || tag == "arm7tdmi" {
 			return false
 		}
 	}
